@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Now Playing</title>
+  <style>
+    :root {
+      --accent: #1DB954;
+      --text: #ffffff;
+      --text-dim: rgba(255, 255, 255, 0.62);
+      --glass: rgba(16, 16, 18, 0.78);
+      --radius: 20px;
+      --art-size: 76px;
+      --card-width: 420px;
+      --title-size: 16.5px;
+      --artist-size: 13.5px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: transparent !important;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    #card {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.96);
+      width: var(--card-width);
+      padding: 16px 18px 14px 16px;
+      background: var(--glass);
+      border-radius: var(--radius);
+      backdrop-filter: blur(32px) saturate(180%);
+      -webkit-backdrop-filter: blur(32px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      opacity: 0;
+      transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      display: flex; flex-direction: column; gap: 14px;
+      pointer-events: none;
+      will-change: opacity, transform;
+    }
+    #card.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #card.hidden { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+    .top { display: flex; align-items: center; gap: 16px; }
+    .art-wrap {
+      width: var(--art-size); height: var(--art-size);
+      flex-shrink: 0; border-radius: 13px; overflow: hidden;
+      position: relative; background: #0d0d0f;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    #art { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .art-placeholder {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 28%, #111), #111);
+    }
+    .art-placeholder svg { width: 30px; height: 30px; opacity: 0.8; fill: var(--accent); }
+    .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    #title {
+      font-size: var(--title-size); font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: -0.025em; line-height: 1.3;
+    }
+    #artist {
+      font-size: var(--artist-size); color: var(--text-dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .controls { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+    .play-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .play-btn svg { width: 13px; height: 13px; fill: #fff; }
+    .play-btn.playing .ic-play { display: none; }
+    .play-btn.playing .ic-pause { display: block; }
+    .play-btn:not(.playing) .ic-play { display: block; }
+    .play-btn:not(.playing) .ic-pause { display: none; }
+    .time {
+      font-size: 12px; color: var(--text-dim);
+      font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+    }
+    .progress-container {
+      width: 100%; height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 99px; overflow: hidden;
+    }
+    #progress {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 65%, #fff));
+      border-radius: 99px;
+      transition: width 0.3s linear;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    #card.playing .art-wrap {
+      box-shadow: 0 8px 28px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+    .hide-art .art-wrap { display: none !important; }
+    .hide-progress .progress-container { display: none !important; }
+    .hide-time .time { display: none !important; }
+    .hide-play .play-btn { display: none !important; }
+    .hide-artist #artist { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="card" class="hidden">
+    <div class="top">
+      <div class="art-wrap">
+        <img id="art" alt="" />
+        <div class="art-placeholder" id="placeholder">
+          <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        </div>
+      </div>
+      <div class="meta">
+        <div id="title">—</div>
+        <div id="artist">—</div>
+        <div class="controls">
+          <div class="play-btn" id="playBtn">
+            <svg class="ic-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="ic-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </div>
+          <div class="time" id="time">0:00 / 0:00</div>
+        </div>
+      </div>
+    </div>
+    <div class="progress-container"><div id="progress"></div></div>
+  </div>
+
+  <script>
+    const DEFAULTS = {
+      source: "any",
+      accent: "#1DB954",
+      glassOpacity: 0.78,
+      radius: 20,
+      artSize: 76,
+      cardWidth: 420,
+      showArt: true,
+      showProgress: true,
+      showTime: true,
+      showPlay: true,
+      showArtist: true,
+      endpoint: "http://127.0.0.1:5000/now-playing"
+    };
+
+    let config = { ...DEFAULTS };
+
+    function applyConfig(cfg) {
+      config = { ...DEFAULTS, ...cfg };
+      const r = document.documentElement;
+      r.style.setProperty("--accent", config.accent);
+      r.style.setProperty("--glass", `rgba(16, 16, 18, ${config.glassOpacity})`);
+      r.style.setProperty("--radius", config.radius + "px");
+      r.style.setProperty("--art-size", config.artSize + "px");
+      r.style.setProperty("--card-width", config.cardWidth + "px");
+
+      const card = document.getElementById("card");
+      card.classList.toggle("hide-art", !config.showArt);
+      card.classList.toggle("hide-progress", !config.showProgress);
+      card.classList.toggle("hide-time", !config.showTime);
+      card.classList.toggle("hide-play", !config.showPlay);
+      card.classList.toggle("hide-artist", !config.showArtist);
+    }
+
+    function loadFromHash() {
+      try {
+        const hash = location.hash.slice(1);
+        if (!hash) return;
+        const json = decodeURIComponent(escape(atob(hash)));
+        applyConfig(JSON.parse(json));
+      } catch {}
+    }
+
+    // Live updates from parent customizer (no iframe reload)
+    window.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "np-config") {
+        applyConfig(e.data.config);
+      }
+    });
+
+    loadFromHash();
+    window.addEventListener("hashchange", loadFromHash);
+
+    const SOURCE_MATCHERS = {
+      spotify: (a) => (a || "").toLowerCase().includes("spotify"),
+      apple: (a) => {
+        const x = (a || "").toLowerCase();
+        return (x.includes("music") || x.includes("itunes")) && !x.includes("youtube");
+      },
+      youtube: (a) => {
+        const x = (a || "").toLowerCase();
+        return x.includes("chrome") || x.includes("safari") || x.includes("firefox") ||
+               x.includes("brave") || x.includes("edge") || x.includes("youtube");
+      },
+      any: () => true
+    };
+
+    const card = document.getElementById("card");
+    const titleEl = document.getElementById("title");
+    const artistEl = document.getElementById("artist");
+    const artEl = document.getElementById("art");
+    const placeholder = document.getElementById("placeholder");
+    const progressEl = document.getElementById("progress");
+    const playBtn = document.getElementById("playBtn");
+    const timeEl = document.getElementById("time");
+
+    let lastTitle = "";
+    let lastArt = "";
+    let currentPos = 0;
+    let currentDur = 0;
+    let isPlaying = false;
+    let progressTimer = null;
+    let pollBusy = false;
+
+    function formatTime(ms) {
+      if (!ms || ms < 0) return "0:00";
+      const s = Math.floor(ms / 1000);
+      return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+    }
+
+    function updateProgress() {
+      if (currentDur <= 0) {
+        progressEl.style.width = "0%";
+        timeEl.textContent = "0:00 / 0:00";
+        return;
+      }
+      progressEl.style.width = Math.min(100, (currentPos / currentDur) * 100) + "%";
+      timeEl.textContent = `${formatTime(currentPos)} / ${formatTime(currentDur)}`;
+    }
+
+    function clearArt() {
+      artEl.removeAttribute("src");
+      artEl.style.display = "none";
+      placeholder.style.display = "flex";
+      lastArt = "";
+    }
+
+    function showCard(data) {
+      const match = SOURCE_MATCHERS[config.source] || SOURCE_MATCHERS.any;
+      if (!match(data.app)) {
+        hideCard();
+        return;
+      }
+
+      const title = data.title || "Unknown";
+      const artist = data.artist || "Unknown Artist";
+
+      if (title !== lastTitle) {
+        titleEl.textContent = title;
+        artistEl.textContent = artist;
+        lastTitle = title;
+        clearArt();
+        currentPos = data.position_ms || 0;
+      }
+
+      if (data.art && data.art !== lastArt) {
+        artEl.src = data.art;
+        artEl.style.display = "block";
+        placeholder.style.display = "none";
+        lastArt = data.art;
+      }
+
+      isPlaying = !!data.playing;
+      currentDur = data.duration_ms || 0;
+      const serverPos = data.position_ms || 0;
+      if (Math.abs(serverPos - currentPos) > 2500 || serverPos < currentPos - 1000) {
+        currentPos = serverPos;
+      }
+
+      playBtn.classList.toggle("playing", isPlaying);
+      card.classList.toggle("playing", isPlaying);
+      updateProgress();
+
+      if (progressTimer) clearInterval(progressTimer);
+      if (isPlaying && currentDur > 0) {
+        progressTimer = setInterval(() => {
+          currentPos = Math.min(currentPos + 1000, currentDur);
+          updateProgress();
+        }, 1000);
+      }
+
+      card.classList.remove("hidden");
+      card.classList.add("visible");
+    }
+
+    function hideCard() {
+      card.classList.remove("visible");
+      card.classList.add("hidden");
+      lastTitle = "";
+      clearArt();
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+    }
+
+    async function poll() {
+      if (pollBusy) return;
+      pollBusy = true;
+      try {
+        const res = await fetch(config.endpoint, { cache: "no-store" });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (data && data.title) showCard(data);
+        else hideCard();
+      } catch {
+        hideCard();
+      } finally {
+        pollBusy = false;
+      }
+    }
+
+    poll();
+    setInterval(poll, 1600);
+  </script>
+</body>
+</html>

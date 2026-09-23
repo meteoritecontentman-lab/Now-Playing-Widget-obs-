@@ -84,6 +84,11 @@
       font-size: 12px; font-weight: 700; flex-shrink: 0;
     }
     .onboard-actions { display: flex; flex-direction: column; gap: 10px; }
+    .os-note {
+      font-size: 11.5px; color: var(--muted); text-align: center;
+      letter-spacing: 0.02em; margin: 0 0 -2px;
+    }
+    .dl-group { display: flex; flex-direction: column; gap: 8px; }
 
     /* ========== BUTTONS ========== */
     .btn {
@@ -318,9 +323,12 @@
         <div class="step"><div class="step-num">3</div> Customize → Generate link → paste in OBS</div>
       </div>
       <div class="onboard-actions">
-        <a class="btn btn-primary btn-block" id="btn-dl-mac" href="bridge-macos.zip" download>Download macOS Bridge</a>
-        <a class="btn btn-secondary btn-block" id="btn-dl-win" href="bridge-windows.zip" download>Download Windows Bridge</a>
-        <a class="btn btn-secondary btn-block" id="btn-dl-linux" href="bridge-linux.zip" download>Download Linux Bridge</a>
+        <p class="os-note" id="detected-os">Detecting your system…</p>
+        <div id="os-downloads">
+          <a class="btn btn-primary btn-block" data-os="mac" id="btn-dl-mac" href="bridge-macos.zip" download>Download macOS Bridge</a>
+          <a class="btn btn-secondary btn-block" data-os="win" id="btn-dl-win" href="bridge-windows.zip" download>Download Windows Bridge</a>
+          <a class="btn btn-secondary btn-block" data-os="linux" id="btn-dl-linux" href="bridge-linux.zip" download>Download Linux Bridge</a>
+        </div>
         <button type="button" class="btn btn-secondary btn-block" id="btn-have">I already have it</button>
         <button type="button" class="btn-ghost" id="btn-skip">Continue without Bridge</button>
       </div>
@@ -390,9 +398,11 @@
 
       <div class="section">
         <div class="section-label">Bridge</div>
-        <a class="btn btn-secondary btn-block" href="bridge-macos.zip" download style="margin-top:4px">macOS Bridge</a>
-        <a class="btn btn-secondary btn-block" href="bridge-windows.zip" download style="margin-top:8px">Windows Bridge</a>
-        <a class="btn btn-secondary btn-block" href="bridge-linux.zip" download style="margin-top:8px">Linux Bridge</a>
+        <div id="os-links" class="dl-group">
+          <a class="btn btn-secondary" data-os="mac" href="bridge-macos.zip" download>macOS Bridge</a>
+          <a class="btn btn-secondary" data-os="win" href="bridge-windows.zip" download>Windows Bridge</a>
+          <a class="btn btn-secondary" data-os="linux" href="bridge-linux.zip" download>Linux Bridge</a>
+        </div>
       </div>
     </div>
   </aside>
@@ -438,7 +448,7 @@
         showTime: true,
         showPlay: true,
         showArtist: true,
-        endpoint: "http://127.0.0.1:5000/now-playing"
+        endpoint: "http://127.0.0.1:8123/now-playing"
       };
 
       let previewReady = false;
@@ -559,6 +569,47 @@
       }
 
       $("btn-gen").addEventListener("click", copyLink);
+
+      // ========== AUTO-DETECT OS ==========
+      // Puts the right download button first and makes it primary,
+      // so most people only ever click the highlighted button.
+      function detectOS() {
+        const uaData = navigator.userAgentData;
+        const plat = (uaData && uaData.platform) || navigator.platform || "";
+        const ua = navigator.userAgent || "";
+        if (/^Mac/i.test(plat) || /Mac OS X|Macintosh/i.test(ua)) return "mac";
+        if (/Windows/i.test(plat) || /Windows/i.test(ua)) return "win";
+        if (/Linux/i.test(plat) || /Linux/i.test(ua)) return "linux";
+        return null;
+      }
+      const OS_NAMES = { mac: "macOS", win: "Windows", linux: "Linux" };
+      const detectedOS = detectOS();
+      const osOrder = detectedOS
+        ? [detectedOS].concat(["mac", "win", "linux"].filter((o) => o !== detectedOS))
+        : ["mac", "win", "linux"];
+
+      function arrangeDownloads(container) {
+        if (!container) return;
+        const map = {};
+        container.querySelectorAll("[data-os]").forEach((el) => (map[el.dataset.os] = el));
+        osOrder.forEach((os) => {
+          const el = map[os];
+          if (!el) return;
+          container.appendChild(el);
+          const primary = os === detectedOS;
+          el.classList.toggle("btn-primary", primary);
+          el.classList.toggle("btn-secondary", !primary);
+        });
+      }
+      arrangeDownloads($("os-downloads"));
+      arrangeDownloads($("os-links"));
+
+      const note = $("detected-os");
+      if (note) {
+        note.textContent = detectedOS
+          ? "Detected your system: " + OS_NAMES[detectedOS]
+          : "Choose your system below";
+      }
       $("btn-copy").addEventListener("click", () => {
         if (copyLock) return;
         copyLock = true;
@@ -582,7 +633,7 @@
         const dot = $("dot");
         const label = $("status-label");
         try {
-          const res = await fetch("http://127.0.0.1:5000/health", { cache: "no-store" });
+          const res = await fetch("http://127.0.0.1:8123/health", { cache: "no-store" });
           if (!res.ok) throw new Error();
           const data = await res.json();
           dot.className = "status-dot ok";

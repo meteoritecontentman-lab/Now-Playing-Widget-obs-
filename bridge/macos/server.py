@@ -5,9 +5,15 @@ Reads system Now Playing and serves it to the widget.
 """
 
 import json
+import os
 import subprocess
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+
+# Port note: we do NOT use 5000. On macOS the AirPlay Receiver
+# (ControlCenter) hijacks port 5000, which crashed the old bridge.
+# Default: 8123. Override with: NP_PORT=8124  python server.py
+PORT = int(os.environ.get("NP_PORT", "8123"))
 
 app = Flask(__name__, static_folder=".")
 CORS(app)
@@ -111,7 +117,19 @@ if __name__ == "__main__":
     print("  Now Playing Bridge (macOS)")
     print("=" * 56)
     print("  Keep this window open while streaming.")
-    print("  Widget reads from: http://127.0.0.1:5000/now-playing")
+    print(f"  Widget reads from: http://127.0.0.1:{PORT}/now-playing")
     print("=" * 56)
     print()
-    app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)
+    try:
+        app.run(host="127.0.0.1", port=PORT, debug=False, threaded=True)
+    except OSError as e:
+        if e.errno == 48 or "Address already in use" in str(e):
+            print()
+            print(f"  Port {PORT} is already in use — the bridge could not start.")
+            print("  On macOS this is usually the AIRPLAY RECEIVER.")
+            print("  Fix: System Settings → General → AirDrop & Handoff")
+            print("       → turn OFF \"AirPlay Receiver\", then run again.")
+            print("  Or use another port:  NP_PORT=8124  python server.py")
+            print("  (you must also update the port in the widget link)")
+        else:
+            raise

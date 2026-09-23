@@ -4,9 +4,14 @@ Now Playing Bridge – Linux (MPRIS via playerctl)
 """
 
 import json
+import os
 import subprocess
 from flask import Flask, jsonify
 from flask_cors import CORS
+
+# Shared port for all bridges. Do NOT use 5000 — on macOS that port is
+# taken by the AirPlay Receiver. Override with: NP_PORT=8124 python server.py
+PORT = int(os.environ.get("NP_PORT", "8123"))
 
 app = Flask(__name__)
 CORS(app)
@@ -96,6 +101,14 @@ if __name__ == "__main__":
     print("  Now Playing Bridge (Linux)")
     print("=" * 56)
     print("  Requires: playerctl (sudo apt install playerctl)")
-    print("  http://127.0.0.1:5000/now-playing")
+    print(f"  Widget reads from: http://127.0.0.1:{PORT}/now-playing")
     print("=" * 56)
-    app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)
+    try:
+        app.run(host="127.0.0.1", port=PORT, debug=False, threaded=True)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            print(f"\n  Port {PORT} is in use by another program.")
+            print("  Run with another port:  NP_PORT=8124  python server.py")
+            print("  (and update the port in the widget link)")
+        else:
+            raise

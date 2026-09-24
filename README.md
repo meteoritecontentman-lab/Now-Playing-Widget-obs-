@@ -102,8 +102,9 @@ Keep the Bridge window **open** while streaming.
 
 | Option | What it does |
 |---|---|
+| 🎭 **Theme** | 6 preset looks — **Aurora** (default), **Material**, **Neon**, **Retro Cassette**, **Paper**, **Soundwave**. Every theme still follows your accent color |
 | 🎨 **Accent** | Color of the progress bar, glow & art tint |
-| 🔍 **Show only** | Widget only appears for *Any app / Spotify / Apple Music / YouTube-Browser* |
+| 🔍 **Show only** | Widget only appears for *Any app / Spotify / Apple Music / YouTube-Browser / Nuclear* |
 | 🌫️ **Opacity** | Glass effect strength (25% → 95%) |
 | 📐 **Radius / Width / Art size** | Shape & dimensions of the card |
 | 🔘 **Elements** | Toggle album art, progress bar, time, play button, artist on/off |

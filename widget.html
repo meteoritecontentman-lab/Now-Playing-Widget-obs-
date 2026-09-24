@@ -25,6 +25,13 @@
       -webkit-font-smoothing: antialiased;
     }
     #card {
+      /* Theme base — individual themes override these on #card.theme-* */
+      --surface: 16, 16, 18;          /* RGB for the glass background */
+      --border: rgba(255, 255, 255, 0.1);
+      --track: rgba(255, 255, 255, 0.12);
+      --chip: rgba(255, 255, 255, 0.12);
+      --btn-icon: #ffffff;
+      --art-bg: #0d0d0f;
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%) scale(0.96);
       width: var(--card-width);
@@ -33,7 +40,7 @@
       border-radius: var(--radius);
       backdrop-filter: blur(32px) saturate(180%);
       -webkit-backdrop-filter: blur(32px) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
       box-shadow:
         0 24px 64px rgba(0, 0, 0, 0.55),
         inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -49,13 +56,13 @@
     .art-wrap {
       width: var(--art-size); height: var(--art-size);
       flex-shrink: 0; border-radius: 13px; overflow: hidden;
-      position: relative; background: #0d0d0f;
+      position: relative; background: var(--art-bg);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     }
     #art { width: 100%; height: 100%; object-fit: cover; display: none; }
     .art-placeholder {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 28%, #111), #111);
+      background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 28%, var(--art-bg)), var(--art-bg));
     }
     .art-placeholder svg { width: 30px; height: 30px; opacity: 0.8; fill: var(--accent); }
     .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -71,10 +78,10 @@
     .controls { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
     .play-btn {
       width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.12);
+      background: var(--chip);
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .play-btn svg { width: 13px; height: 13px; fill: #fff; }
+    .play-btn svg { width: 13px; height: 13px; fill: var(--btn-icon); }
     .play-btn.playing .ic-play { display: none; }
     .play-btn.playing .ic-pause { display: block; }
     .play-btn:not(.playing) .ic-play { display: block; }
@@ -85,7 +92,7 @@
     }
     .progress-container {
       width: 100%; height: 4px;
-      background: rgba(255, 255, 255, 0.12);
+      background: var(--track);
       border-radius: 99px; overflow: hidden;
     }
     #progress {
@@ -107,16 +114,130 @@
     .viz {
       display: flex; align-items: flex-end; gap: 3px;
       height: 32px; padding: 6px 8px 5px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: color-mix(in srgb, var(--chip) 45%, transparent);
+      border: 1px solid var(--border);
       border-radius: 10px;
     }
     .viz span {
       flex: 1; min-height: 3px; border-radius: 3px;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 38%),
+        linear-gradient(180deg, var(--chip), transparent 38%),
         linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
       box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+
+    /* ============ THEMES ============ */
+    /* Aurora (default) simply uses the base #card variables above. */
+
+    /* Material — Android 12 style: light glass, circular art, accent pill */
+    #card.theme-material {
+      --surface: 246, 246, 250;
+      --text: #1d1d20;
+      --text-dim: rgba(29, 29, 32, 0.55);
+      --border: rgba(255, 255, 255, 0.75);
+      --track: rgba(29, 29, 32, 0.10);
+      --chip: rgba(29, 29, 32, 0.06);
+      --btn-icon: #ffffff;
+      --art-bg: #e8e8ee;
+      --radius: 30px;
+      backdrop-filter: blur(36px) saturate(220%);
+      -webkit-backdrop-filter: blur(36px) saturate(220%);
+      box-shadow:
+        0 18px 48px rgba(0, 0, 0, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+    #card.theme-material .art-wrap { border-radius: 50%; }
+    #card.theme-material .play-btn { background: var(--accent); }
+    #card.theme-material .progress-container { height: 5px; }
+
+    /* Neon — cyberpunk glow, fully accent-driven */
+    #card.theme-neon {
+      --surface: 9, 9, 14;
+      --text: #ffffff;
+      --text-dim: rgba(255, 255, 255, 0.58);
+      --border: color-mix(in srgb, var(--accent) 45%, transparent);
+      --track: rgba(255, 255, 255, 0.09);
+      --chip: rgba(255, 255, 255, 0.06);
+      --btn-icon: #ffffff;
+      --art-bg: #0b0b11;
+      --radius: 14px;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+        0 0 38px color-mix(in srgb, var(--accent) 16%, transparent),
+        inset 0 0 24px rgba(255, 255, 255, 0.02);
+    }
+    #card.theme-neon #title {
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 800;
+    }
+    #card.theme-neon .art-wrap { border-radius: 8px; }
+    #card.theme-neon .play-btn { border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+
+    /* Retro — cassette / vinyl warmth, serif type */
+    #card.theme-retro {
+      --surface: 28, 23, 20;
+      --text: #f6ecd9;
+      --text-dim: rgba(246, 236, 217, 0.56);
+      --border: rgba(246, 220, 180, 0.16);
+      --track: rgba(246, 220, 180, 0.16);
+      --chip: rgba(246, 220, 180, 0.10);
+      --btn-icon: #241a12;
+      --art-bg: #3a2c22;
+      --radius: 16px;
+      box-shadow:
+        0 22px 60px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 235, 200, 0.07);
+    }
+    #card.theme-retro #title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 600;
+      letter-spacing: 0.005em;
+    }
+    #card.theme-retro #artist {
+      font-family: Georgia, "Times New Roman", serif;
+      font-style: italic;
+    }
+    #card.theme-retro .art-wrap { border-radius: 50%; }
+    #card.theme-retro .play-btn { border-radius: 8px; }
+    #card.theme-retro .progress-container { height: 5px; }
+
+    /* Paper — light minimal ticket */
+    #card.theme-paper {
+      --surface: 250, 250, 247;
+      --text: #191917;
+      --text-dim: rgba(25, 25, 23, 0.55);
+      --border: rgba(20, 20, 18, 0.10);
+      --track: rgba(20, 20, 18, 0.10);
+      --chip: rgba(20, 20, 18, 0.07);
+      --btn-icon: #191917;
+      --art-bg: #ededeb;
+      --radius: 12px;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 12px 34px rgba(0, 0, 0, 0.08);
+    }
+    #card.theme-paper #title { font-weight: 700; letter-spacing: -0.03em; }
+    #card.theme-paper .art-wrap { border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+    #card.theme-paper .play-btn { border: 1px solid rgba(20, 20, 18, 0.14); }
+
+    /* Wave — soundwave / dashboard vibe */
+    #card.theme-wave {
+      --surface: 8, 11, 18;
+      --text: #eef2ff;
+      --text-dim: rgba(238, 242, 255, 0.55);
+      --border: rgba(130, 165, 255, 0.16);
+      --track: rgba(238, 242, 255, 0.10);
+      --chip: rgba(130, 165, 255, 0.14);
+      --btn-icon: #eef2ff;
+      --art-bg: #0c1220;
+      --radius: 24px;
+    }
+    #card.theme-wave #title { font-weight: 800; letter-spacing: -0.03em; }
+    #card.theme-wave .art-wrap { border-radius: 50%; }
+    #card.theme-wave .viz {
+      border: none;
+      background: color-mix(in srgb, var(--chip) 35%, transparent);
     }
   </style>
 </head>
@@ -147,6 +268,7 @@
 
   <script>
     const DEFAULTS = {
+      theme: "aurora",
       source: "any",
       accent: "#1DB954",
       glassOpacity: 0.78,
@@ -164,16 +286,27 @@
 
     let config = { ...DEFAULTS };
 
+    const THEMES = ["aurora", "material", "neon", "retro", "paper", "wave"];
+
     function applyConfig(cfg) {
       config = { ...DEFAULTS, ...cfg };
       const r = document.documentElement;
+      const card = document.getElementById("card");
+
+      // Theme: swap the card's theme class (aurora = base vars, no overrides).
+      card.classList.remove(...THEMES.map((t) => "theme-" + t));
+      const theme = THEMES.includes(config.theme) ? config.theme : "aurora";
+      card.classList.add("theme-" + theme);
+
+      // Glass is built from the theme's surface RGB + the opacity slider, so
+      // every theme respects the user's opacity setting.
+      const surface = getComputedStyle(card).getPropertyValue("--surface").trim() || "16, 16, 18";
+      r.style.setProperty("--glass", `rgba(${surface}, ${config.glassOpacity})`);
       r.style.setProperty("--accent", config.accent);
-      r.style.setProperty("--glass", `rgba(16, 16, 18, ${config.glassOpacity})`);
       r.style.setProperty("--radius", config.radius + "px");
       r.style.setProperty("--art-size", config.artSize + "px");
       r.style.setProperty("--card-width", config.cardWidth + "px");
 
-      const card = document.getElementById("card");
       card.classList.toggle("hide-art", !config.showArt);
       card.classList.toggle("hide-progress", !config.showProgress);
       card.classList.toggle("hide-time", !config.showTime);

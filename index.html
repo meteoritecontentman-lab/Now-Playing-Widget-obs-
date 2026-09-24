@@ -373,6 +373,17 @@
       <div class="section">
         <div class="section-label">Look</div>
         <div class="field">
+          <label>Theme</label>
+          <select id="cfg-theme" aria-label="Widget theme">
+            <option value="aurora">Aurora (default)</option>
+            <option value="material">Material</option>
+            <option value="neon">Neon</option>
+            <option value="retro">Retro Cassette</option>
+            <option value="paper">Paper</option>
+            <option value="wave">Soundwave</option>
+          </select>
+        </div>
+        <div class="field">
           <label>Accent</label>
           <input type="color" id="cfg-accent" value="#22c55e" />
         </div>
@@ -450,6 +461,7 @@
       "use strict";
 
       const state = {
+        theme: "aurora",
         source: "any",
         accent: "#22c55e",
         glassOpacity: 0.78,
@@ -565,6 +577,11 @@
         onEdit();
       });
 
+      $("cfg-theme").addEventListener("change", (e) => {
+        state.theme = e.target.value;
+        onEdit();
+      });
+
       $("cfg-accent").addEventListener("input", (e) => {
         state.accent = e.target.value;
         document.documentElement.style.setProperty("--accent", state.accent);
@@ -675,6 +692,7 @@
 
       // Boot: restore the last saved settings (controls + URL + preview).
       function applyStateToControls(cfg) {
+        if (cfg.theme) $("cfg-theme").value = cfg.theme;
         if (cfg.source) $("cfg-source").value = cfg.source;
         if (cfg.accent) {
           $("cfg-accent").value = cfg.accent;

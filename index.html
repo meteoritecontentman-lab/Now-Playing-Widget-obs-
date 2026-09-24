@@ -281,6 +281,16 @@
     .url-row {
       display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
     }
+    .unsaved-badge {
+      display: none;
+      align-items: center;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 4px 8px; border-radius: 99px;
+      white-space: nowrap;
+    }
     #widget-url {
       flex: 1; min-width: 0;
       background: var(--elevated);
@@ -394,6 +404,7 @@
         <div class="field"><label>Time</label><div class="toggle on" data-k="showTime" role="switch" aria-checked="true"></div></div>
         <div class="field"><label>Play button</label><div class="toggle on" data-k="showPlay" role="switch" aria-checked="true"></div></div>
         <div class="field"><label>Artist</label><div class="toggle on" data-k="showArtist" role="switch" aria-checked="true"></div></div>
+        <div class="field"><label>Visualizer</label><div class="toggle" data-k="showViz" role="switch" aria-checked="false"></div></div>
       </div>
 
       <div class="section">
@@ -423,8 +434,9 @@
     <div class="footer">
       <div class="url-row">
         <input type="text" id="widget-url" readonly spellcheck="false" />
+        <span class="unsaved-badge" id="unsaved">Unsaved</span>
         <button type="button" class="btn btn-secondary" id="btn-copy">Copy</button>
-        <button type="button" class="btn btn-primary" id="btn-gen">Generate link</button>
+        <button type="button" class="btn btn-primary" id="btn-gen">Save settings</button>
       </div>
       <p class="footer-hint">
         OBS → Browser Source → paste link · size <code>480 × 140</code> · keep Bridge running on this Mac
@@ -448,12 +460,11 @@
         showTime: true,
         showPlay: true,
         showArtist: true,
+        showViz: false,
         endpoint: "http://127.0.0.1:8123/now-playing"
       };
 
       let previewReady = false;
-      let pushTimer = null;
-      let copyLock = false;
 
       const $ = (id) => document.getElementById(id);
       const preview = $("preview");
@@ -468,22 +479,50 @@
         return base + "/widget.html#" + encode(state);
       }
 
-      function pushConfig() {
-        $("widget-url").value = widgetUrl();
+      // Live preview only — the URL is NOT rewritten here anymore,
+      // so unsaved tweaks never leak into the copied link.
+      function applyPreview() {
         if (!previewReady || !preview.contentWindow) return;
         try {
           preview.contentWindow.postMessage({ type: "np-config", config: { ...state } }, "*");
         } catch {}
       }
 
-      function schedulePush() {
-        if (pushTimer) clearTimeout(pushTimer);
-        pushTimer = setTimeout(pushConfig, 80);
+      function markDirty() {
+        const badge = $("unsaved");
+        if (badge) badge.style.display = "inline-flex";
+      }
+
+      // Any control change: keep the live preview fresh + flag unsaved.
+      function onEdit() {
+        markDirty();
+        applyPreview();
+      }
+
+      // The ONLY moment the widget link is written.
+      function saveNow() {
+        const url = widgetUrl();
+        $("widget-url").value = url;
+        applyPreview();
+        try {
+          localStorage.setItem("np_config", JSON.stringify(state));
+        } catch {}
+        const badge = $("unsaved");
+        if (badge) badge.style.display = "none";
+        const btn = $("btn-gen");
+        const prev = btn.textContent;
+        btn.textContent = "Saved ✓";
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = prev;
+          btn.disabled = false;
+        }, 1200);
+        copyText(url);
       }
 
       preview.addEventListener("load", () => {
         previewReady = true;
-        pushConfig();
+        applyPreview();
       });
 
       // Onboarding
@@ -516,19 +555,19 @@
           el.classList.toggle("on", on);
           el.setAttribute("aria-checked", on ? "true" : "false");
           state[el.dataset.k] = on;
-          schedulePush();
+          onEdit();
         });
       });
 
       $("cfg-source").addEventListener("change", (e) => {
         state.source = e.target.value;
-        schedulePush();
+        onEdit();
       });
 
       $("cfg-accent").addEventListener("input", (e) => {
         state.accent = e.target.value;
         document.documentElement.style.setProperty("--accent", state.accent);
-        schedulePush();
+        onEdit();
       });
 
       function bindRange(id, key, valId, format) {
@@ -537,7 +576,7 @@
           const v = parseFloat(el.value);
           state[key] = v;
           $(valId).textContent = format(v);
-          schedulePush();
+          onEdit();
         });
       }
       bindRange("cfg-opacity", "glassOpacity", "v-opacity", (v) => Math.round(v * 100) + "%");
@@ -545,30 +584,25 @@
       bindRange("cfg-width", "cardWidth", "v-width", (v) => String(v));
       bindRange("cfg-art", "artSize", "v-art", (v) => String(v));
 
-      async function copyLink() {
-        if (copyLock) return;
-        copyLock = true;
-        const url = widgetUrl();
-        $("widget-url").value = url;
-        pushConfig();
-        try {
-          await navigator.clipboard.writeText(url);
-        } catch {
-          $("widget-url").select();
+      function copyText(text) {
+        navigator.clipboard.writeText(text).catch(() => {
+          const input = $("widget-url");
+          input.select();
           document.execCommand("copy");
-        }
-        const btn = $("btn-gen");
+        });
+      }
+
+      function flashBtn(btn) {
         const prev = btn.textContent;
-        btn.textContent = "Copied";
+        btn.textContent = "Copied ✓";
         btn.disabled = true;
         setTimeout(() => {
           btn.textContent = prev;
           btn.disabled = false;
-          copyLock = false;
-        }, 1200);
+        }, 1000);
       }
 
-      $("btn-gen").addEventListener("click", copyLink);
+      $("btn-gen").addEventListener("click", saveNow);
 
       // ========== AUTO-DETECT OS ==========
       // Puts the right download button first and makes it primary,
@@ -611,18 +645,8 @@
           : "Choose your system below";
       }
       $("btn-copy").addEventListener("click", () => {
-        if (copyLock) return;
-        copyLock = true;
-        const url = widgetUrl();
-        $("widget-url").value = url;
-        navigator.clipboard.writeText(url).catch(() => {});
-        const btn = $("btn-copy");
-        const prev = btn.textContent;
-        btn.textContent = "Copied";
-        setTimeout(() => {
-          btn.textContent = prev;
-          copyLock = false;
-        }, 1000);
+        copyText($("widget-url").value);
+        flashBtn($("btn-copy"));
       });
 
       // Bridge status — no overlapping requests
@@ -648,7 +672,46 @@
       checkHealth();
       setInterval(checkHealth, 5000);
 
-      $("widget-url").value = widgetUrl();
+      // Boot: restore the last saved settings (controls + URL + preview).
+      function applyStateToControls(cfg) {
+        if (cfg.source) $("cfg-source").value = cfg.source;
+        if (cfg.accent) {
+          $("cfg-accent").value = cfg.accent;
+          document.documentElement.style.setProperty("--accent", cfg.accent);
+        }
+        const ranges = [
+          ["cfg-opacity", "glassOpacity", "v-opacity", (v) => Math.round(v * 100) + "%"],
+          ["cfg-radius", "radius", "v-radius", (v) => String(v)],
+          ["cfg-width", "cardWidth", "v-width", (v) => String(v)],
+          ["cfg-art", "artSize", "v-art", (v) => String(v)],
+        ];
+        ranges.forEach(([id, key, valId, fmt]) => {
+          if (typeof cfg[key] === "number") {
+            $(id).value = cfg[key];
+            $(valId).textContent = fmt(cfg[key]);
+          }
+        });
+        document.querySelectorAll(".toggle").forEach((el) => {
+          const k = el.dataset.k;
+          if (typeof cfg[k] === "boolean") {
+            el.classList.toggle("on", cfg[k]);
+            el.setAttribute("aria-checked", cfg[k] ? "true" : "false");
+          }
+        });
+      }
+
+      function restoreSaved() {
+        try {
+          const saved = JSON.parse(localStorage.getItem("np_config") || "null");
+          if (saved && typeof saved === "object") {
+            Object.assign(state, saved);
+            applyStateToControls(state);
+          }
+        } catch {}
+        $("widget-url").value = widgetUrl();
+        applyPreview();
+      }
+      restoreSaved();
     })();
   </script>
 </body>

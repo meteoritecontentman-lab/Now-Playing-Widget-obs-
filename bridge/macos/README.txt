@@ -31,7 +31,7 @@ HOW TO START  (repeat each stream - takes 5 seconds)
 USING IT IN OBS
 ----------------------------------------------------------------
   1. Open the Now Playing customizer (the main page / hub).
-  2. Pick your colors and options -> click  "Generate link".
+  2. Pick your colors and options -> click  "Save settings".
   3. OBS:  Sources  ->  +  ->  Browser
   4. Paste the link into the "URL" field.
      Suggested size: 480 x 140.
@@ -52,7 +52,7 @@ TROUBLESHOOTING
      again in the dialog. You only do this once.
 
   Q: Nothing shows even though music is playing.
-  A: Click "Generate link" again so the widget link matches your
+  A: Click "Save settings" again so the widget link matches your
      current setup, and make sure the bridge window is open.
 
 ----------------------------------------------------------------

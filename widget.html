@@ -103,6 +103,21 @@
     .hide-time .time { display: none !important; }
     .hide-play .play-btn { display: none !important; }
     .hide-artist #artist { display: none !important; }
+    .hide-viz .viz { display: none !important; }
+    .viz {
+      display: flex; align-items: flex-end; gap: 3px;
+      height: 32px; padding: 6px 8px 5px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+    }
+    .viz span {
+      flex: 1; min-height: 3px; border-radius: 3px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 38%),
+        linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+      box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
   </style>
 </head>
 <body>
@@ -127,6 +142,7 @@
       </div>
     </div>
     <div class="progress-container"><div id="progress"></div></div>
+    <div class="viz" id="viz"></div>
   </div>
 
   <script>
@@ -142,6 +158,7 @@
       showTime: true,
       showPlay: true,
       showArtist: true,
+      showViz: false,
       endpoint: "http://127.0.0.1:8123/now-playing"
     };
 
@@ -162,6 +179,7 @@
       card.classList.toggle("hide-time", !config.showTime);
       card.classList.toggle("hide-play", !config.showPlay);
       card.classList.toggle("hide-artist", !config.showArtist);
+      card.classList.toggle("hide-viz", !config.showViz);
     }
 
     function loadFromHash() {
@@ -206,13 +224,49 @@
     const playBtn = document.getElementById("playBtn");
     const timeEl = document.getElementById("time");
 
+    // ===== Voice / audio visualizer (bottom of card) =====
+    // Simulated waveform — the widget has no access to system audio,
+    // so bars dance when music is playing and sit idle when paused.
+    const BAR_COUNT = 28;
+    const viz = document.getElementById("viz");
+    const vizBars = [];
+    const vizHeights = new Array(BAR_COUNT).fill(0);
+    let vizPlaying = false;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const s = document.createElement("span");
+      viz.appendChild(s);
+      vizBars.push(s);
+    }
+    function vizTick(ts) {
+      const t = ts * 0.001;
+      // Slow "energy" envelope so it breathes like real audio.
+      const breathe = vizPlaying ? 0.55 + 0.45 * ((Math.sin(t * 1.7) + 1) / 2) : 0.07;
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const wave = (Math.sin(t * 3.1 + i * 0.45) + 1) / 2;   // smooth per-bar wave
+        const jitter = vizPlaying ? 0.25 + Math.random() * 0.55 : 0.02 + Math.random() * 0.06;
+        const target = Math.min(1, wave * 0.55 + jitter) * breathe;
+        vizHeights[i] += (target - vizHeights[i]) * 0.35;
+        vizBars[i].style.height = (3 + vizHeights[i] * 22).toFixed(1) + "px";
+      }
+      requestAnimationFrame(vizTick);
+    }
+    requestAnimationFrame(vizTick);
+
     let lastTitle = "";
     let lastArt = "";
-    let currentPos = 0;
+    let anchorPos = 0;     // last known position from the bridge (ms)
+    let anchorTime = 0;    // when we learned that position (Date.now)
     let currentDur = 0;
     let isPlaying = false;
     let progressTimer = null;
     let pollBusy = false;
+
+    // Accurate clock: instead of adding "+1000 every second" (which drifts),
+    // anchor to the bridge position and compute elapsed time from Date.now().
+    function positionNow() {
+      if (!isPlaying || !anchorTime) return anchorPos;
+      return Math.min(anchorPos + (Date.now() - anchorTime), currentDur || Infinity);
+    }
 
     function formatTime(ms) {
       if (!ms || ms < 0) return "0:00";
@@ -226,8 +280,9 @@
         timeEl.textContent = "0:00 / 0:00";
         return;
       }
-      progressEl.style.width = Math.min(100, (currentPos / currentDur) * 100) + "%";
-      timeEl.textContent = `${formatTime(currentPos)} / ${formatTime(currentDur)}`;
+      const pos = Math.min(positionNow(), currentDur);
+      progressEl.style.width = Math.min(100, (pos / currentDur) * 100) + "%";
+      timeEl.textContent = `${formatTime(pos)} / ${formatTime(currentDur)}`;
     }
 
     function clearArt() {
@@ -252,7 +307,8 @@
         artistEl.textContent = artist;
         lastTitle = title;
         clearArt();
-        currentPos = data.position_ms || 0;
+        anchorPos = data.position_ms || 0;
+        anchorTime = Date.now();
       }
 
       if (data.art && data.art !== lastArt) {
@@ -265,20 +321,31 @@
       isPlaying = !!data.playing;
       currentDur = data.duration_ms || 0;
       const serverPos = data.position_ms || 0;
-      if (Math.abs(serverPos - currentPos) > 2500 || serverPos < currentPos - 1000) {
-        currentPos = serverPos;
+
+      if (!isPlaying) {
+        // Paused/no media: hold the exact bridge position — no drift.
+        anchorPos = serverPos;
+        anchorTime = Date.now();
+      } else {
+        // Playing: interpolate from our wall-clock anchor and re-anchor the
+        // moment the bridge disagrees (seek, buffering, playback-rate, loop).
+        const est = positionNow();
+        if (!anchorTime || Math.abs(serverPos - est) > 1200 || serverPos < est - 800) {
+          anchorPos = serverPos;
+          anchorTime = Date.now();
+        }
+        if (currentDur > 0) anchorPos = Math.min(anchorPos, currentDur);
       }
 
+      vizPlaying = isPlaying;
       playBtn.classList.toggle("playing", isPlaying);
       card.classList.toggle("playing", isPlaying);
       updateProgress();
 
       if (progressTimer) clearInterval(progressTimer);
       if (isPlaying && currentDur > 0) {
-        progressTimer = setInterval(() => {
-          currentPos = Math.min(currentPos + 1000, currentDur);
-          updateProgress();
-        }, 1000);
+        // Render at 2 Hz from the anchor clock; the bridge re-syncs every poll.
+        progressTimer = setInterval(updateProgress, 500);
       }
 
       card.classList.remove("hidden");
@@ -290,6 +357,9 @@
       card.classList.add("hidden");
       lastTitle = "";
       clearArt();
+      anchorPos = 0;
+      anchorTime = 0;
+      vizPlaying = false;
       if (progressTimer) {
         clearInterval(progressTimer);
         progressTimer = null;
@@ -312,8 +382,73 @@
       }
     }
 
-    poll();
-    setInterval(poll, 1600);
+    // ---- LIVE POLLING VIA WEB WORKER ----
+    // Browsers throttle plain setInterval in the background, which froze the
+    // widget whenever the tab or OBS scene wasn't focused. Worker timers are
+    // never throttled, so the card stays live no matter what.
+    let worker = (typeof Worker !== "undefined")
+      ? (() => {
+          try {
+            const code = [
+              "let endpoint = '';",
+              "let timer = null;",
+              "let busy = false;",
+              "self.onmessage = function (e) {",
+              "  if (!e.data || e.data.type !== 'config') return;",
+              "  endpoint = e.data.endpoint;",
+              "  if (timer) return;",
+              "  timer = setInterval(async function () {",
+              "    if (!endpoint || busy) return;",
+              "    busy = true;",
+              "    try {",
+              "      const res = await fetch(endpoint, { cache: 'no-store' });",
+              "      if (!res.ok) throw new Error('http ' + res.status);",
+              "      const data = await res.json();",
+              "      self.postMessage({ ok: true, data: data });",
+              "    } catch (err) {",
+              "      self.postMessage({ ok: false });",
+              "    } finally {",
+              "      busy = false;",
+              "    }",
+              "  }, 1600);",
+              "};",
+            ].join("\n");
+            const w = new Worker(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+            w.onmessage = function (e) {
+              if (e.data && e.data.ok && e.data.data && e.data.data.title) showCard(e.data.data);
+              else hideCard();
+            };
+            w.onerror = function () {
+              // Worker failed to load/run (CSP etc.) — fall back to a plain loop.
+              if (w) w.terminate();
+              worker = null;
+              poll();
+              setInterval(poll, 1600);
+            };
+            return w;
+          } catch (err) {
+            return null;
+          }
+        })()
+      : null;
+
+    function syncWorkerEndpoint() {
+      if (worker) worker.postMessage({ type: "config", endpoint: config.endpoint });
+    }
+
+    if (worker) {
+      syncWorkerEndpoint();
+      // Keep the worker pointed at the right endpoint if the config changes.
+      const _applyConfig = applyConfig;
+      window.applyConfig = function (cfg) {
+        _applyConfig(cfg);
+        syncWorkerEndpoint();
+      };
+    } else {
+      // Fallback for exotic embedders without Worker support.
+      poll();
+      setInterval(poll, 1600);
+    }
   </script>
 </body>
 </html>

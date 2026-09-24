@@ -32,7 +32,7 @@ HOW TO START  (repeat each stream)
 USING IT IN OBS
 ----------------------------------------------------------------
   1. Open the Now Playing customizer (the main page / hub).
-  2. Pick your colors and options -> click  "Generate link".
+  2. Pick your colors and options -> click  "Save settings".
   3. OBS:  Sources  ->  +  ->  Browser
   4. Paste the link into the "URL" field.
      Suggested size: 480 x 140.

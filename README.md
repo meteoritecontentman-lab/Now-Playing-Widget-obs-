@@ -19,7 +19,8 @@ A **live Now Playing overlay** that shows the song/track currently playing
 on your computer — right in your OBS scene.
 
 - 🖥️ Works on **macOS**, **Windows**, and **Linux**
-- 🎚️ Full **customizer** — pick your accent color, opacity, radius, size, and which elements to show (album art, progress bar, time, play button, artist)
+- ⚡ **Always live** — Worker-powered polling means the card updates in real time even when the OBS scene/tab isn't focused (plain timers get throttled by browsers)
+- 🎚️ Full **customizer** — pick your accent color, opacity, radius, size, which elements to show (album art, progress bar, time, play button, artist), or add the optional **voice visualizer**
 - 🔒 **100% private** — a tiny local "Bridge" reads your music and serves it straight to the widget. **Nothing ever leaves your computer.**
 - 🧩 Paste **one link** into OBS Browser Source and you're live
 
@@ -84,7 +85,7 @@ on your computer — right in your OBS scene.
 
 ### 2️⃣ Design your overlay & generate the link
 
-Open the **customizer** page → pick your colors & options → click **`Generate link`**.
+Open the **customizer** page → pick your colors & options → click **`Save settings`**.
 
 ### 3️⃣ Paste it into OBS
 
@@ -106,9 +107,11 @@ Keep the Bridge window **open** while streaming.
 | 🌫️ **Opacity** | Glass effect strength (25% → 95%) |
 | 📐 **Radius / Width / Art size** | Shape & dimensions of the card |
 | 🔘 **Elements** | Toggle album art, progress bar, time, play button, artist on/off |
+| 🎤 **Visualizer** | Animated audio bars at the bottom of the card (accent colored, dances while music plays) |
 
-The preview updates **live** — and the generated link bakes your choices right into it,
-so anyone you share it with sees **your** design.
+The preview updates **live** — and when you hit **`Save settings`**, your choices are baked into the link
+so anyone you share it with sees **your** design. Change the controls without saving and the link stays
+untouched (an "Unsaved" badge reminds you to hit save).
 
 ---
 

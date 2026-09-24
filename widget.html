@@ -252,10 +252,11 @@
     }
     requestAnimationFrame(vizTick);
 
-    let lastTitle = "";
+    let lastTrackKey = "";
     let lastArt = "";
-    let anchorPos = 0;     // last known position from the bridge (ms)
-    let anchorTime = 0;    // when we learned that position (Date.now)
+    let anchorPos = 0;     // last trustworthy position (ms)
+    let anchorTime = 0;    // when we learned it (Date.now)
+    let lastServerPos = null; // previous bridge position (to detect "moved")
     let currentDur = 0;
     let isPlaying = false;
     let progressTimer = null;
@@ -301,14 +302,18 @@
 
       const title = data.title || "Unknown";
       const artist = data.artist || "Unknown Artist";
+      // Composite key: the artist can arrive a poll after the title,
+      // so we refresh on ANY change — never show a stale author.
+      const trackKey = title + "‖" + artist;
 
-      if (title !== lastTitle) {
+      if (trackKey !== lastTrackKey) {
         titleEl.textContent = title;
         artistEl.textContent = artist;
-        lastTitle = title;
+        lastTrackKey = trackKey;
         clearArt();
         anchorPos = data.position_ms || 0;
         anchorTime = Date.now();
+        lastServerPos = data.position_ms || 0;
       }
 
       if (data.art && data.art !== lastArt) {
@@ -321,21 +326,35 @@
       isPlaying = !!data.playing;
       currentDur = data.duration_ms || 0;
       const serverPos = data.position_ms || 0;
+      const moved = serverPos !== lastServerPos;
 
-      if (!isPlaying) {
-        // Paused/no media: hold the exact bridge position — no drift.
-        anchorPos = serverPos;
-        anchorTime = Date.now();
-      } else {
-        // Playing: interpolate from our wall-clock anchor and re-anchor the
-        // moment the bridge disagrees (seek, buffering, playback-rate, loop).
+      if (isPlaying) {
         const est = positionNow();
-        if (!anchorTime || Math.abs(serverPos - est) > 1200 || serverPos < est - 800) {
+        if (!anchorTime) {
+          // No anchor yet (first load) — bootstrap from the source.
           anchorPos = serverPos;
           anchorTime = Date.now();
+        } else if (moved) {
+          // The source reported a NEW reading. media-control updates in
+          // chunks and freezes for seconds, so we only:
+          //  - snap FORWARD when it's clearly ahead (catch-up / seek-fwd)
+          //  - snap BACK only on a real big jump (seek-back / loop)
+          // Never snap to a frozen value — that caused the stutter.
+          const err = serverPos - est;
+          if (err > 1200 || err < -8000) {
+            anchorPos = serverPos;
+            anchorTime = Date.now();
+          }
         }
         if (currentDur > 0) anchorPos = Math.min(anchorPos, currentDur);
+      } else {
+        // Paused: pin the clock at the interpolated position — no yanking.
+        if (anchorTime) {
+          anchorPos = positionNow();
+          anchorTime = Date.now();
+        }
       }
+      lastServerPos = serverPos;
 
       vizPlaying = isPlaying;
       playBtn.classList.toggle("playing", isPlaying);
@@ -355,10 +374,11 @@
     function hideCard() {
       card.classList.remove("visible");
       card.classList.add("hidden");
-      lastTitle = "";
+      lastTrackKey = "";
       clearArt();
       anchorPos = 0;
       anchorTime = 0;
+      lastServerPos = null;
       vizPlaying = false;
       if (progressTimer) {
         clearInterval(progressTimer);

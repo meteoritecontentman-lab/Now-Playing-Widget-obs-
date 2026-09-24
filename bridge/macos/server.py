@@ -7,6 +7,7 @@ Reads system Now Playing and serves it to the widget.
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -38,6 +39,38 @@ def run_media_control(*args) -> str:
         return ""
 
 
+def real_position_ms(data: dict) -> int:
+    """media-control returns coarse, frozen positions: some apps (e.g.
+    Nuclear) only set Now Playing info ONCE at track start and never update
+    elapsedTime, while others update in chunks every few seconds. The
+    `timestamp` field is when the app last updated its info, so while
+    playback is active we reconstruct the true position from the wall clock:
+
+        real = elapsedTime + (now - timestamp) * playbackRate
+
+    This turns frozen/chunky sources into a smooth, real-time position.
+    Falls back to the raw elapsedTime when paused or timestamp is missing.
+    """
+    try:
+        elapsed = float(data.get("elapsedTime") or 0)
+        rate = float(data.get("playbackRate") or 0)
+        duration = float(data.get("duration") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+    try:
+        stamp = datetime.fromisoformat((data.get("timestamp") or "").replace("Z", "+00:00"))
+    except (ValueError, TypeError, AttributeError):
+        stamp = None
+
+    pos = elapsed
+    if rate > 0 and stamp is not None:
+        pos = elapsed + (datetime.now(timezone.utc) - stamp).total_seconds() * rate
+        if duration and pos > duration:
+            pos = duration
+    return int(round(max(0.0, pos) * 1000))
+
+
 def fetch_now_playing() -> dict:
     raw = run_media_control("get")
     if not raw or raw == "null":
@@ -58,10 +91,9 @@ def fetch_now_playing() -> dict:
 
     try:
         duration_ms = int(float(data.get("duration") or 0) * 1000)
-        position_ms = int(float(data.get("elapsedTime") or 0) * 1000)
     except (TypeError, ValueError):
         duration_ms = 0
-        position_ms = 0
+    position_ms = real_position_ms(data)
 
     art = None
     artwork_data = data.get("artworkData")
@@ -70,7 +102,9 @@ def fetch_now_playing() -> dict:
         artwork_data = artwork_data.replace(r"\/", "/")
         art = f"data:{mime};base64,{artwork_data}"
 
-    app_id = data.get("bundleIdentifier") or ""
+    # Electron / WebKit apps (e.g. Nuclear) register their media session
+    # under the WebKit subprocess; the parent bundle id is the real app.
+    app_id = data.get("parentApplicationBundleIdentifier") or data.get("bundleIdentifier") or ""
 
     result = {
         "playing": playing and bool(title),
@@ -84,7 +118,7 @@ def fetch_now_playing() -> dict:
     }
 
     if title:
-        print(f"→ {title} – {artist} | playing={result['playing']} | app={app_id}")
+        print(f"→ {title} – {artist} | playing={result['playing']} | pos={position_ms}ms | app={app_id}")
     return result
 
 

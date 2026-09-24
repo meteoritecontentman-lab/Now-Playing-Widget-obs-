@@ -212,6 +212,7 @@
         return x.includes("chrome") || x.includes("safari") || x.includes("firefox") ||
                x.includes("brave") || x.includes("edge") || x.includes("youtube");
       },
+      nuclear: (a) => (a || "").toLowerCase().includes("nuclear"),
       any: () => true
     };
 

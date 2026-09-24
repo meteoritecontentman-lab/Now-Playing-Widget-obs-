@@ -5,9 +5,9 @@
 
 WHAT THIS IS
   A tiny program that reads what's currently playing on your Mac
-  (Spotify, Apple Music, YouTube in a browser, etc.) and feeds it
-  to your "Now Playing" overlay in OBS. All data stays on your
-  computer - nothing is uploaded anywhere.
+  (Spotify, Apple Music, YouTube in a browser, Nuclear player,
+  etc.) and feeds it to your "Now Playing" overlay in OBS. All
+  data stays on your computer - nothing is uploaded anywhere.
 
 WHAT YOU NEED
   - macOS (Apple Silicon or Intel)
